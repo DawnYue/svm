@@ -1,20 +1,59 @@
-﻿// svm.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
-//
-
-#include <iostream>
-
-int main()
+﻿#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/ml.hpp>
+using namespace cv;
+using namespace cv::ml;
+using namespace std;
+//课前准备
+//https://blog.csdn.net/red_ear/article/details/88964177
+int main(int, char**)
 {
-    std::cout << "Hello World!\n";
+	// Set up training data
+	int labels[4] = { 1, -1, -1, -1 };
+	float trainingData[4][2] = { {501, 10}, {255, 10}, {501, 255}, {10, 501} };
+	Mat trainingDataMat(4, 2, CV_32F, trainingData);
+	Mat labelsMat(4, 1, CV_32SC1, labels);
+	// Train the SVM
+	Ptr<SVM> svm = SVM::create();
+	svm->setType(SVM::C_SVC);
+	svm->setKernel(SVM::LINEAR);
+	svm->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER, 100, 1e-6));
+	svm->train(trainingDataMat, ROW_SAMPLE, labelsMat);
+	// Data for visual representation
+	int width = 512, height = 512;
+	Mat image = Mat::zeros(height, width, CV_8UC3);
+	// Show the decision regions given by the SVM
+	Vec3b green(0, 255, 0), blue(255, 0, 0);
+	for (int i = 0; i < image.rows; i++)
+	{
+		for (int j = 0; j < image.cols; j++)
+		{
+			Mat sampleMat = (Mat_<float>(1, 2) << j, i);
+			float response = svm->predict(sampleMat);
+			if (response == 1)
+				image.at<Vec3b>(i, j) = green;
+			else if (response == -1)
+				image.at<Vec3b>(i, j) = blue;
+		}
+	}
+	// Show the training data
+	int thickness = -1;
+	circle(image, Point(501, 10), 5, Scalar(0, 0, 0), thickness);
+	circle(image, Point(255, 10), 5, Scalar(255, 255, 255), thickness);
+	circle(image, Point(501, 255), 5, Scalar(255, 255, 255), thickness);
+	circle(image, Point(10, 501), 5, Scalar(255, 255, 255), thickness);
+	// Show support vectors
+	thickness = 2;
+	Mat sv = svm->getUncompressedSupportVectors();
+	for (int i = 0; i < sv.rows; i++)
+	{
+		const float* v = sv.ptr<float>(i);
+		circle(image, Point((int)v[0], (int)v[1]), 6, Scalar(128, 128, 128), thickness);
+	}
+	imwrite("result.png", image);        // save the image
+	imshow("SVM Simple Example", image); // show it to the user
+	waitKey();
+	return 0;
 }
-
-// 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
-// 调试程序: F5 或调试 >“开始调试”菜单
-
-// 入门使用技巧: 
-//   1. 使用解决方案资源管理器窗口添加/管理文件
-//   2. 使用团队资源管理器窗口连接到源代码管理
-//   3. 使用输出窗口查看生成输出和其他消息
-//   4. 使用错误列表窗口查看错误
-//   5. 转到“项目”>“添加新项”以创建新的代码文件，或转到“项目”>“添加现有项”以将现有代码文件添加到项目
-//   6. 将来，若要再次打开此项目，请转到“文件”>“打开”>“项目”并选择 .sln 文件
