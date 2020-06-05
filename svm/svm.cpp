@@ -4,61 +4,85 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/ml.hpp>
 using namespace cv;
-using namespace cv::ml;
 using namespace std;
 //练习2
-#pragma once
-//选择需要演示的demo
-#define DEMO_METHOD		0	//0：kmeans抠图demo	1：叠加视频
-//参数设置
-#define USE_CAMERA		false							//ture: 使用摄像头作为输入	false：读取本地视频
-#define VIDEO_PATH		"../testImages\\vtest.avi"		//如果读取本地视频，则使用该路径
-VideoCapture createInput(bool useCamera, std::string videoPath);
-void segColor();
-int kMeansDemo();
+#define VIDEO_PATH		"E:\\14\\3.mp4"					//如果读取本地视频，则使用该路径
 int createMaskByKmeans(cv::Mat src, cv::Mat &mask);
+int kMeansDemo();
 
 int main()
-{
-	double start = static_cast<double>(cvGetTickCount());	//开始计时
-
-	//segColor();
-	kMeansDemo();
-
-	double time = ((double)cvGetTickCount() - start) / cvGetTickFrequency();//结束计时
-	cout << "processing time:" << time / 1000 << "ms" << endl;//显示时间
-
-	//等待键盘响应，按任意键结束程序
-	system("pause");
-	return 0;
-}
-
-VideoCapture createInput(bool useCamera, std::string videoPath)
-{
-	//选择输入
-	VideoCapture capVideo;
-	if (useCamera) {
-		capVideo.open(0);
-	}
-	else {
-		capVideo.open(videoPath);
-	}
-	return capVideo;
-}
-
-void segColor()
-{
-	Mat src = imread("../testImages\\movie.jpg");
+{	//kMeansDemo();
+	Mat src = imread("E:\\14\\2.jpg");
 
 	Mat mask = Mat::zeros(src.size(), CV_8UC1);
 	createMaskByKmeans(src, mask);
 
 	imshow("src", src);
 	imshow("mask", mask);
+	waitKey();//回车继续
 
-	waitKey(0);
+	VideoCapture cap;
+	cap.open(VIDEO_PATH);// cap.open(0);
+	Mat frame;
+	Mat tempMat;
+	Mat dst = Mat::zeros(src.size(), CV_8UC1);;
 
+	while (1) {
+		cap >> frame;
+		frame.copyTo(tempMat);
+		//tempMat.convertTo(tempMat, CV_8UC1);
+		//cvCvtColor(tempMat, tempMat, CV_BGR2GRAY);   
+		//add(tempMat, mask, dst);
+
+
+
+
+		imshow("template", tempMat);
+		imshow("mydst", dst);
+		waitKey(30);
+	}
+
+	return 0;
 }
+
+
+int createMaskByKmeans(cv::Mat src, cv::Mat & mask)
+{
+	if ((mask.type() != CV_8UC1)
+		|| (src.size() != mask.size())
+		) {
+		return 0;
+	}
+
+	int width = src.cols;
+	int height = src.rows;
+
+	int pixNum = width * height;
+	int clusterCount = 2;
+	Mat labels;
+	Mat centers;
+
+	//制作kmeans用的数据
+	Mat sampleData = src.reshape(3, pixNum);
+	Mat km_data;
+	sampleData.convertTo(km_data, CV_32F);
+
+	//执行kmeans
+	TermCriteria criteria = TermCriteria(TermCriteria::EPS + TermCriteria::COUNT, 10, 0.1);
+	kmeans(km_data, clusterCount, labels, criteria, clusterCount, KMEANS_PP_CENTERS, centers);
+
+	//制作mask
+	uchar fg[2] = { 0,255 };
+	for (int row = 0; row < height; row++) {
+		for (int col = 0; col < width; col++) {
+			mask.at<uchar>(row, col) = fg[labels.at<int>(row*width + col)];
+		}
+	}
+
+	return 0;
+}
+
+
 
 int kMeansDemo()
 {
@@ -123,42 +147,5 @@ int kMeansDemo()
 		if (key == 27 || key == 'q' || key == 'Q') // 'ESC'
 			break;
 	}
-
-	return 0;
-}
-
-int createMaskByKmeans(cv::Mat src, cv::Mat & mask)
-{
-	if ((mask.type() != CV_8UC1)
-		|| (src.size() != mask.size())
-		) {
-		return 0;
-	}
-
-	int width = src.cols;
-	int height = src.rows;
-
-	int pixNum = width * height;
-	int clusterCount = 2;
-	Mat labels;
-	Mat centers;
-
-	//制作kmeans用的数据
-	Mat sampleData = src.reshape(3, pixNum);
-	Mat km_data;
-	sampleData.convertTo(km_data, CV_32F);
-
-	//执行kmeans
-	TermCriteria criteria = TermCriteria(TermCriteria::EPS + TermCriteria::COUNT, 10, 0.1);
-	kmeans(km_data, clusterCount, labels, criteria, clusterCount, KMEANS_PP_CENTERS, centers);
-
-	//制作mask
-	uchar fg[2] = { 0,255 };
-	for (int row = 0; row < height; row++) {
-		for (int col = 0; col < width; col++) {
-			mask.at<uchar>(row, col) = fg[labels.at<int>(row*width + col)];
-		}
-	}
-
 	return 0;
 }
