@@ -14,3 +14,5 @@ KMEANS_PP_CENTERS 表示用kmeans++算法来初始化簇心, KMEANS_USE_INITIAL_
 聚类时用用户给定的值初始化聚类，后面几次的聚类，则自动确定簇心。
 centers: 用来初始化簇心的。与前一个flags参数的选择有关。如果选择KMEANS_RANDOM_CENTERS随机
 初始化簇心，则这个参数可省略。
+
+老师代码https://github.com/lizhu1126/dip-class-demos/blob/feature14.MachineLearning/dip-class-demos/funtions.cpp
