@@ -30,12 +30,9 @@ int main()
 	while (1) {
 		cap >> frame;
 		frame.copyTo(tempMat);
-		//tempMat.convertTo(tempMat, CV_8UC1);
+		//tempMat.convertTo(tempMat, CV_BGR2GRAY);
 		//cvCvtColor(tempMat, tempMat, CV_BGR2GRAY);   
 		//add(tempMat, mask, dst);
-
-
-
 
 		imshow("template", tempMat);
 		imshow("mydst", dst);
