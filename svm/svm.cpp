@@ -6,54 +6,159 @@
 using namespace cv;
 using namespace cv::ml;
 using namespace std;
-//课前准备
-//https://blog.csdn.net/red_ear/article/details/88964177
-int main(int, char**)
+//练习1
+#pragma once
+//选择需要演示的demo
+#define DEMO_METHOD		0	//0：kmeans抠图demo	1：叠加视频
+//参数设置
+#define USE_CAMERA		false							//ture: 使用摄像头作为输入	false：读取本地视频
+#define VIDEO_PATH		"../testImages\\vtest.avi"		//如果读取本地视频，则使用该路径
+VideoCapture createInput(bool useCamera, std::string videoPath);
+void segColor();
+int kMeansDemo();
+int createMaskByKmeans(cv::Mat src, cv::Mat &mask);
+
+int main()
 {
-	// Set up training data
-	int labels[4] = { 1, -1, -1, -1 };
-	float trainingData[4][2] = { {501, 10}, {255, 10}, {501, 255}, {10, 501} };
-	Mat trainingDataMat(4, 2, CV_32F, trainingData);
-	Mat labelsMat(4, 1, CV_32SC1, labels);
-	// Train the SVM
-	Ptr<SVM> svm = SVM::create();
-	svm->setType(SVM::C_SVC);
-	svm->setKernel(SVM::LINEAR);
-	svm->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER, 100, 1e-6));
-	svm->train(trainingDataMat, ROW_SAMPLE, labelsMat);
-	// Data for visual representation
-	int width = 512, height = 512;
-	Mat image = Mat::zeros(height, width, CV_8UC3);
-	// Show the decision regions given by the SVM
-	Vec3b green(0, 255, 0), blue(255, 0, 0);
-	for (int i = 0; i < image.rows; i++)
+	double start = static_cast<double>(cvGetTickCount());	//开始计时
+
+	//segColor();
+	kMeansDemo();
+
+	double time = ((double)cvGetTickCount() - start) / cvGetTickFrequency();//结束计时
+	cout << "processing time:" << time / 1000 << "ms" << endl;//显示时间
+
+	//等待键盘响应，按任意键结束程序
+	system("pause");
+	return 0;
+}
+
+VideoCapture createInput(bool useCamera, std::string videoPath)
+{
+	//选择输入
+	VideoCapture capVideo;
+	if (useCamera) {
+		capVideo.open(0);
+	}
+	else {
+		capVideo.open(videoPath);
+	}
+	return capVideo;
+}
+
+void segColor()
+{
+	Mat src = imread("../testImages\\movie.jpg");
+
+	Mat mask = Mat::zeros(src.size(), CV_8UC1);
+	createMaskByKmeans(src, mask);
+
+	imshow("src", src);
+	imshow("mask", mask);
+
+	waitKey(0);
+
+}
+
+int kMeansDemo()
+{
+	const int MAX_CLUSTERS = 5;
+	Scalar colorTab[] =
 	{
-		for (int j = 0; j < image.cols; j++)
+		Scalar(0, 0, 255),
+		Scalar(0,255,0),
+		Scalar(255,100,100),
+		Scalar(255,0,255),
+		Scalar(0,255,255)
+	};
+
+	Mat img(500, 500, CV_8UC3);
+	RNG rng(12345);
+
+	for (;;)
+	{
+		int k, clusterCount = rng.uniform(2, MAX_CLUSTERS + 1);
+		int i, sampleCount = rng.uniform(1, 1001);
+		Mat points(sampleCount, 1, CV_32FC2), labels;
+
+		clusterCount = MIN(clusterCount, sampleCount);
+		std::vector<Point2f> centers;
+
+		/* generate random sample from multigaussian distribution */
+		for (k = 0; k < clusterCount; k++)
 		{
-			Mat sampleMat = (Mat_<float>(1, 2) << j, i);
-			float response = svm->predict(sampleMat);
-			if (response == 1)
-				image.at<Vec3b>(i, j) = green;
-			else if (response == -1)
-				image.at<Vec3b>(i, j) = blue;
+			Point center;
+			center.x = rng.uniform(0, img.cols);
+			center.y = rng.uniform(0, img.rows);
+			Mat pointChunk = points.rowRange(k*sampleCount / clusterCount,
+				k == clusterCount - 1 ? sampleCount :
+				(k + 1)*sampleCount / clusterCount);
+			rng.fill(pointChunk, RNG::NORMAL, Scalar(center.x, center.y), Scalar(img.cols*0.05, img.rows*0.05));
+		}
+
+		randShuffle(points, 1, &rng);
+
+		double compactness = kmeans(points, clusterCount, labels,
+			TermCriteria(TermCriteria::EPS + TermCriteria::COUNT, 10, 1.0),
+			3, KMEANS_PP_CENTERS, centers);
+
+		img = Scalar::all(0);
+
+		for (i = 0; i < sampleCount; i++)
+		{
+			int clusterIdx = labels.at<int>(i);
+			Point ipt = points.at<Point2f>(i);
+			circle(img, ipt, 2, colorTab[clusterIdx], FILLED, LINE_AA);
+		}
+		for (i = 0; i < (int)centers.size(); ++i)
+		{
+			Point2f c = centers[i];
+			circle(img, c, 40, colorTab[i], 1, LINE_AA);
+		}
+		cout << "Compactness: " << compactness << endl;
+
+		imshow("clusters", img);
+
+		char key = (char)waitKey();
+		if (key == 27 || key == 'q' || key == 'Q') // 'ESC'
+			break;
+	}
+
+	return 0;
+}
+
+int createMaskByKmeans(cv::Mat src, cv::Mat & mask)
+{
+	if ((mask.type() != CV_8UC1)
+		|| (src.size() != mask.size())
+		) {
+		return 0;
+	}
+
+	int width = src.cols;
+	int height = src.rows;
+
+	int pixNum = width * height;
+	int clusterCount = 2;
+	Mat labels;
+	Mat centers;
+
+	//制作kmeans用的数据
+	Mat sampleData = src.reshape(3, pixNum);
+	Mat km_data;
+	sampleData.convertTo(km_data, CV_32F);
+
+	//执行kmeans
+	TermCriteria criteria = TermCriteria(TermCriteria::EPS + TermCriteria::COUNT, 10, 0.1);
+	kmeans(km_data, clusterCount, labels, criteria, clusterCount, KMEANS_PP_CENTERS, centers);
+
+	//制作mask
+	uchar fg[2] = { 0,255 };
+	for (int row = 0; row < height; row++) {
+		for (int col = 0; col < width; col++) {
+			mask.at<uchar>(row, col) = fg[labels.at<int>(row*width + col)];
 		}
 	}
-	// Show the training data
-	int thickness = -1;
-	circle(image, Point(501, 10), 5, Scalar(0, 0, 0), thickness);
-	circle(image, Point(255, 10), 5, Scalar(255, 255, 255), thickness);
-	circle(image, Point(501, 255), 5, Scalar(255, 255, 255), thickness);
-	circle(image, Point(10, 501), 5, Scalar(255, 255, 255), thickness);
-	// Show support vectors
-	thickness = 2;
-	Mat sv = svm->getUncompressedSupportVectors();
-	for (int i = 0; i < sv.rows; i++)
-	{
-		const float* v = sv.ptr<float>(i);
-		circle(image, Point((int)v[0], (int)v[1]), 6, Scalar(128, 128, 128), thickness);
-	}
-	imwrite("result.png", image);        // save the image
-	imshow("SVM Simple Example", image); // show it to the user
-	waitKey();
+
 	return 0;
 }
