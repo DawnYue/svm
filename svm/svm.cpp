@@ -4,127 +4,17 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/ml.hpp>
 using namespace cv;
-using namespace cv::ml;
 using namespace std;
 //练习1
-#pragma once
-//选择需要演示的demo
-#define DEMO_METHOD		0	//0：kmeans抠图demo	1：叠加视频
-//参数设置
-#define USE_CAMERA		false							//ture: 使用摄像头作为输入	false：读取本地视频
-#define VIDEO_PATH		"../testImages\\vtest.avi"		//如果读取本地视频，则使用该路径
-VideoCapture createInput(bool useCamera, std::string videoPath);
-void segColor();
-int kMeansDemo();
 int createMaskByKmeans(cv::Mat src, cv::Mat &mask);
-
 int main()
 {
-	double start = static_cast<double>(cvGetTickCount());	//开始计时
-
-	//segColor();
-	kMeansDemo();
-
-	double time = ((double)cvGetTickCount() - start) / cvGetTickFrequency();//结束计时
-	cout << "processing time:" << time / 1000 << "ms" << endl;//显示时间
-
-	//等待键盘响应，按任意键结束程序
-	system("pause");
-	return 0;
-}
-
-VideoCapture createInput(bool useCamera, std::string videoPath)
-{
-	//选择输入
-	VideoCapture capVideo;
-	if (useCamera) {
-		capVideo.open(0);
-	}
-	else {
-		capVideo.open(videoPath);
-	}
-	return capVideo;
-}
-
-void segColor()
-{
-	Mat src = imread("../testImages\\movie.jpg");
-
+	Mat src = imread("E:\\14\\2.jpg");
 	Mat mask = Mat::zeros(src.size(), CV_8UC1);
 	createMaskByKmeans(src, mask);
-
 	imshow("src", src);
 	imshow("mask", mask);
-
 	waitKey(0);
-
-}
-
-int kMeansDemo()
-{
-	const int MAX_CLUSTERS = 5;
-	Scalar colorTab[] =
-	{
-		Scalar(0, 0, 255),
-		Scalar(0,255,0),
-		Scalar(255,100,100),
-		Scalar(255,0,255),
-		Scalar(0,255,255)
-	};
-
-	Mat img(500, 500, CV_8UC3);
-	RNG rng(12345);
-
-	for (;;)
-	{
-		int k, clusterCount = rng.uniform(2, MAX_CLUSTERS + 1);
-		int i, sampleCount = rng.uniform(1, 1001);
-		Mat points(sampleCount, 1, CV_32FC2), labels;
-
-		clusterCount = MIN(clusterCount, sampleCount);
-		std::vector<Point2f> centers;
-
-		/* generate random sample from multigaussian distribution */
-		for (k = 0; k < clusterCount; k++)
-		{
-			Point center;
-			center.x = rng.uniform(0, img.cols);
-			center.y = rng.uniform(0, img.rows);
-			Mat pointChunk = points.rowRange(k*sampleCount / clusterCount,
-				k == clusterCount - 1 ? sampleCount :
-				(k + 1)*sampleCount / clusterCount);
-			rng.fill(pointChunk, RNG::NORMAL, Scalar(center.x, center.y), Scalar(img.cols*0.05, img.rows*0.05));
-		}
-
-		randShuffle(points, 1, &rng);
-
-		double compactness = kmeans(points, clusterCount, labels,
-			TermCriteria(TermCriteria::EPS + TermCriteria::COUNT, 10, 1.0),
-			3, KMEANS_PP_CENTERS, centers);
-
-		img = Scalar::all(0);
-
-		for (i = 0; i < sampleCount; i++)
-		{
-			int clusterIdx = labels.at<int>(i);
-			Point ipt = points.at<Point2f>(i);
-			circle(img, ipt, 2, colorTab[clusterIdx], FILLED, LINE_AA);
-		}
-		for (i = 0; i < (int)centers.size(); ++i)
-		{
-			Point2f c = centers[i];
-			circle(img, c, 40, colorTab[i], 1, LINE_AA);
-		}
-		cout << "Compactness: " << compactness << endl;
-
-		imshow("clusters", img);
-
-		char key = (char)waitKey();
-		if (key == 27 || key == 'q' || key == 'Q') // 'ESC'
-			break;
-	}
-
-	return 0;
 }
 
 int createMaskByKmeans(cv::Mat src, cv::Mat & mask)
@@ -134,7 +24,6 @@ int createMaskByKmeans(cv::Mat src, cv::Mat & mask)
 		) {
 		return 0;
 	}
-
 	int width = src.cols;
 	int height = src.rows;
 
@@ -159,6 +48,5 @@ int createMaskByKmeans(cv::Mat src, cv::Mat & mask)
 			mask.at<uchar>(row, col) = fg[labels.at<int>(row*width + col)];
 		}
 	}
-
 	return 0;
 }
