@@ -6,7 +6,7 @@
 using namespace cv;
 using namespace cv::ml;
 using namespace std;
-//练习1
+//练习2
 #pragma once
 //选择需要演示的demo
 #define DEMO_METHOD		0	//0：kmeans抠图demo	1：叠加视频
